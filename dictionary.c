@@ -11,3 +11,12 @@ int initializeDataDictionary(const char *dictionaryName) {
 
     return EXIT_SUCCESS;
 }
+
+
+int appendEntity(FILE *dataDictionary, ENTITY newEntity){
+
+}
+
+void reorderEntities(FILE* dataDictionary){
+
+}
