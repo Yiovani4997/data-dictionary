@@ -5,7 +5,7 @@ FILE* initializeDataDictionary(const char *dictionaryName) {
 
     printf("\nInitializing Data Dictionary...\n");
 
-    FILE *dictionary = fopen(dictionaryName, "r+");
+    FILE *dictionary = fopen(dictionaryName, "w+");
 
     if (dictionary == NULL) {
         fprintf(stderr, "Error opening file: %s\n", dictionaryName);
@@ -600,6 +600,7 @@ void entityMenu(FILE* dataDictionary) {
         printf("2) Delete Entity\n");
         printf("3) Modify Entity\n");
         printf("4) Print Entity List\n");
+        printf("5) Attributes menu\n");
         printf("Select an option: ");
         scanf("%d", &option);
         getchar(); 
@@ -616,6 +617,9 @@ void entityMenu(FILE* dataDictionary) {
                 break;
             case 4:
                 showEntities(dataDictionary);
+                break;
+            case 5:
+                attributeMenu(dataDictionary);
                 break;
             case 0:
                 printf("\nReturning to Entityes and Attribute Menu...\n");
@@ -669,10 +673,9 @@ void selectionEntitiesAttributes(FILE* dataDictionary) {
     int option; 
 
     do{ 
-        printf("\n0)Back to main menu\n");
+        printf("\nSelect an option \n");
+        printf("0)Back to main menu\n");
         printf("1) Entityes Menu\n");
-        printf("2) Attributes Menu\n");
-        printf("Select an option: ");
         scanf("%d", &option);
         getchar(); 
     
@@ -691,7 +694,8 @@ void selectionEntitiesAttributes(FILE* dataDictionary) {
                 break;
 
             default:
-                break;
+            printf("Kindly choose the correct option.");
+                
             }
          }
     while (option != 0);
