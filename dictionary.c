@@ -6,7 +6,7 @@ void menuPrincipal(FILE *f)
 
     printf("\n-------- MENU PRINCIPAL --------\n");
     printf("1. Nuevo Diccionario\n");
-    printf("2. Abrir Diccionario\n");
+    printf("2. Abrir un Diccionario existente\n");
     printf("3. Salir\n");
     printf("--------------------------------\n");
 
@@ -38,7 +38,7 @@ void nuevoDiccionario(FILE *f)
     cadena nombArch;
 
     cerrarDiccionario(f);
-    printf("Ingrese el Nombre del Diccionario:");
+    printf("Ingrese el nombre del Diccionario:");
     scanf("%s", nombArch);
 
     f = fopen(nombArch, "rb+");
@@ -97,7 +97,7 @@ void cerrarDiccionario(FILE *f)
 //Menu principal de las entidades, se mandan llamar todas las funciones de entidades, menu de aributos y menu bloques.
 void menuEntidades(FILE *f)
 {
-    int opc, nAtr;
+    int op, nAtr;
     Entidad entAct;
     long direntAct;
     Atributo arrAtr[50];
@@ -106,19 +106,19 @@ void menuEntidades(FILE *f)
 
     do {
         printf("\n-------- MENU ENTIDADES --------\n");
-        printf("1. Nueva Entidad\n");
-        printf("2. Consultar Entidades\n");
-        printf("3. Eliminar Entidades\n");
-        printf("4. Modificar Entidades\n");
-        printf("5. Menu Atributos\n");
-        printf("6. Menu Datos\n");
-        printf("7. Menu Anterior\n");
+        printf("1. Nueva entidad\n");
+        printf("2. Consulta de entidades\n");
+        printf("3. Eliminar entidad\n");
+        printf("4. Modificar entidad\n");
+        printf("5. Menu de atributos\n");
+        printf("6. Menu de datos\n");
+        printf("7. Menu anterior\n");
         printf("--------------------------------\n");
 
-        printf("Seleccione una Opcion:");
-        scanf("%d", &opc);
+        printf("Seleccione una opcion: ");
+        scanf("%d", &op);
 
-        switch (opc)
+        switch (op)
         {
             case 1:
                 altaEntidad(f);
@@ -154,7 +154,7 @@ void menuEntidades(FILE *f)
             default:
                 printf("Ingrese una de las opciones validas 1 - 7.\n");
         }
-    } while (opc != 7);
+    } while (op != 7);
 
 }
 
@@ -221,7 +221,7 @@ Entidad capturaEntidad()
 {
     Entidad ent;
 
-    printf("Nombre de la Entidad:");
+    printf("Nombre de la entidad:");
     scanf("%s", ent.nombre);
 
     ent.sig = ent.atr = ent.data = (long) - 1;
@@ -1304,7 +1304,7 @@ void consultaBloque(FILE *f, Entidad entAct, Atributo *arrAtr, int nAtr, void* b
     printf("\n-----------------------------------------------------------------------------------------------------------------\n");
 }
 
-//Captura unicamete la clav eprimaria de un bloque.
+//Captura unicamete la clave primaria de un bloque.
 void* capturaBloqueClave(Atributo *arrAtr, long tamBloque, int nAtr)
 {
     void* p = malloc(tamBloque);
