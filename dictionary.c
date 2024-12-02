@@ -1,763 +1,1357 @@
 #include "dictionary.h"
-//Funcion que inicializa el diccionario de datos
-FILE* initializeDataDictionary(const char *dictionaryName) {
-    long mainHeader = EMPTY_POINTER;
-
-    printf("\nInitializing Data Dictionary...\n");
-
-    FILE *dictionary = fopen(dictionaryName, "w+");
-
-    if (dictionary == NULL) {
-        fprintf(stderr, "Error opening file: %s\n", dictionaryName);
-        return NULL;
-    }
-
-    fwrite(&mainHeader, sizeof(mainHeader), 1, dictionary);
-
-    return dictionary;
-}
-
-//Agrega una nueva entidad
-int appendEntity(FILE* dataDictionary, ENTITY newEntity) {
- 
-    fseek(dataDictionary, 0, SEEK_END);
-    
-    long entityDirection = ftell(dataDictionary);
-
-    fwrite(newEntity.name, DATA_BLOCK_SIZE, 1, dataDictionary); 
-    fwrite(&newEntity.dataPointer, sizeof(long), 1, dataDictionary); 
-    fwrite(&newEntity.attributesPointer, sizeof(long), 1, dataDictionary);
-    fwrite(&newEntity.nextEntity, sizeof(long), 1, dataDictionary); 
-
-    return entityDirection; 
-}
-//Ordena las entidades
-void reorderEntities(FILE* dataDictionary, long currentEntityPointer, const char* newEntityName, long newEntityDirection){
-    long currentEntityDirection = -1; 
-
-    fseek(dataDictionary, currentEntityPointer, SEEK_SET);
-    fread(&currentEntityDirection, sizeof(currentEntityDirection), 1, dataDictionary); 
-
-    if (currentEntityDirection == -1) {
-        
-        fseek(dataDictionary, currentEntityPointer, SEEK_SET);
-        fwrite(&newEntityDirection, sizeof(long), 1, dataDictionary);
-    }
-    else {
-        char currentEntityName[DATA_BLOCK_SIZE]; 
-        long nextEtityDirection; 
-        long nextHeaderPointer; 
-
-
-        fseek(dataDictionary, currentEntityDirection, SEEK_SET);
-
-        fread(&currentEntityName, sizeof(char), DATA_BLOCK_SIZE, dataDictionary);
-        nextHeaderPointer = ftell(dataDictionary) + (sizeof(long) * 2);
-
-        if (strcmp(currentEntityName, newEntityName) < 0) {
-            
-            reorderEntities(dataDictionary, nextHeaderPointer, newEntityName, newEntityDirection);
-        }
-        else {
-
-            fseek(dataDictionary, currentEntityPointer, SEEK_SET);
-            fwrite(&newEntityDirection, sizeof(long), 1, dataDictionary);
-
-            fseek(dataDictionary, newEntityDirection + DATA_BLOCK_SIZE + (sizeof(long) * 2), SEEK_SET);
-            fwrite(&currentEntityDirection, sizeof(long), 1, dataDictionary);
-        }
-    }
-}
-//Crea una nueva entidad
-void createEntity(FILE* dataDictionary) { 
-    ENTITY newEntity; 
-
-    printf("\nEnter the Entity name: "); 
-    fgets(newEntity.name, sizeof(newEntity.name), stdin); 
-    newEntity.name[strcspn(newEntity.name, "\n")] = '\0';
-    newEntity.dataPointer = EMPTY_POINTER;
-    newEntity.attributesPointer = EMPTY_POINTER; 
-    newEntity.nextEntity = EMPTY_POINTER; 
-
-    long entityDirection = appendEntity(dataDictionary, newEntity);
-    reorderEntities(dataDictionary, MAIN_ENTITY_POINTER, newEntity.name, entityDirection);
-}
-
-/*void createAttribute(FILE* dataDictionary, ENTITY currentEntity) {
-    ATTRIBUTE newAttribute;
-    long type;  
-
-    printf("\nEnter the Attribute name: "); 
-    fgets(newAttribute.name, sizeof(newAttribute.name), stdin);
-    fflush(stdin); 
-    printf("\nIs primary key? (true/false)");
-    fgets(newAttribute.isPrimary, sizeof(bool), stdin); 
-    printf("\nAttribute type: 1)int 2)long 3)float 4)char 5)bool")
-    scanf("%ld", &type); 
-    newAttribute.type = type;
-    attributeSize(newAttribute);
-    newAttribute.nextAttribute =EMPTY_POINTER;  
-
-    long attributeDirection = appendAttribute(dataDictionary, newAttribute);
-    reorderAttributes(dataDictionary, currentEntity.attributesPointer, newAttribute.name, attributeDirection);
-}*/
-//Crea un nuevo atributo
-void createAttribute(FILE* dataDictionary, ENTITY currentEntity) {
-    ATTRIBUTE newAttribute;
-    long type;
-    char response[10];
-
-    fflush(stdin);
-    printf("\nEnter the Attribute name: "); 
-    fgets(newAttribute.name, sizeof(newAttribute.name), stdin);
-    newAttribute.name[strcspn(newAttribute.name, "\n")] = '\0';
-    fflush(stdin);
-    printf("\nIs primary key? 0)false 1)true: ");
-    fgets(response, sizeof(response), stdin);
-
-    if(strcmp(response, "true") == 0)
-        newAttribute.isPrimary = 1; 
-    else
-        newAttribute.isPrimary = 0; 
-    fflush(stdin);
-    printf("\nAttribute type: 1)int 2)long 3)float 4)char 5)bool: ");
-    scanf("%ld", &type);
-    newAttribute.type = type; 
-    attributeSize(newAttribute);
-    newAttribute.nextAttribute = EMPTY_POINTER;
-
-    long attributeDirection = appendAttribute(dataDictionary, newAttribute);
-    reorderAttributes(dataDictionary, currentEntity.attributesPointer, newAttribute.name, attributeDirection);
-}
-//Aggrega el atributo a la entidad a la que pertenece
-int appendAttribute(FILE* dataDictionary, ATTRIBUTE newAttribute) {
- 
-    fseek(dataDictionary, 0, SEEK_END);
-    
-    long attributeDirection = ftell(dataDictionary);
-
-    fwrite(newAttribute.name, DATA_BLOCK_SIZE, 1, dataDictionary); 
-    fwrite(&newAttribute.isPrimary, sizeof(bool), 1, dataDictionary); 
-    fwrite(&newAttribute.type, sizeof(long), 1, dataDictionary);
-    fwrite(&newAttribute.size, sizeof(long), 1, dataDictionary);
-    fwrite(&newAttribute.nextAttribute, sizeof(long), 1, dataDictionary);  
-
-    return attributeDirection; 
-}
-//Ordena los atributos de la entidad
-void reorderAttributes(FILE* dataDictionary, long currentAttributePointer, const char* newAttributeName, long newAttributeDirection){
-    long currentAttributeDirection = -1; 
-
-    fseek(dataDictionary, currentAttributePointer, SEEK_SET);
-    fread(&currentAttributeDirection, sizeof(currentAttributeDirection), 1, dataDictionary); 
-
-    if (currentAttributeDirection == -1) {
-        
-        fseek(dataDictionary, currentAttributePointer, SEEK_SET);
-        fwrite(&newAttributeDirection, sizeof(long), 1, dataDictionary);
-    }
-    else {
-        char currentAttributeName[DATA_BLOCK_SIZE]; 
-        long nextAttributeDirection; 
-        long nextHeaderPointer; 
-
-
-        fseek(dataDictionary, currentAttributeDirection, SEEK_SET);
-
-        fread(&currentAttributeName, sizeof(char), DATA_BLOCK_SIZE, dataDictionary);
-        nextHeaderPointer = ftell(dataDictionary) + sizeof(bool) + (sizeof(long) * 2);
-
-        if (strcmp(currentAttributeName, newAttributeName) < 0) {
-            
-            reorderAttributes(dataDictionary, nextHeaderPointer, newAttributeName, newAttributeDirection);
-        }
-        else {
-
-            fseek(dataDictionary, currentAttributePointer, SEEK_SET);
-            fwrite(&newAttributeDirection, sizeof(long), 1, dataDictionary);
-
-            fseek(dataDictionary, newAttributeDirection + DATA_BLOCK_SIZE + sizeof(bool) + (sizeof(long) * 2), SEEK_SET);
-            fwrite(&currentAttributeDirection, sizeof(long), 1, dataDictionary);
-        }
-    }
-}
-//Eliminar una entidad (Eliminacion lógica)
-ENTITY removeEntity(FILE* dataDictionary, long currentEntityPointer, const char* entityName){
-    long currentEntityDirection = -1; 
-
-    fseek(dataDictionary, currentEntityDirection, SEEK_SET); 
-    fread(&currentEntityDirection, sizeof(long), 1, dataDictionary); 
-
-    if(currentEntityDirection == -1){
-        ENTITY emptyEntity = {0};
-        return emptyEntity; 
-    }
-    else{
-        ENTITY resultEntity; 
-        long nextEntityDirection; 
-        long nextHeaderPointer; 
-
-        fseek(dataDictionary, currentEntityDirection, SEEK_SET); 
-        fread(resultEntity.name, sizeof(char), DATA_BLOCK_SIZE, dataDictionary);
-        nextHeaderPointer = ftell(dataDictionary) + (sizeof(long) * 2); 
-
-        if(strcmp(resultEntity.name, entityName) == 0){
-            fread(&resultEntity.dataPointer, sizeof(long), 1, dataDictionary); 
-            fread(&resultEntity.attributesPointer, sizeof(long), 1, dataDictionary); 
-            fread(&resultEntity.nextEntity, sizeof(long), 1, dataDictionary); 
-
-            fseek(dataDictionary, currentEntityPointer, SEEK_SET);
-            fwrite(&resultEntity.nextEntity, sizeof(long), 1, dataDictionary); 
-
-            return resultEntity;
-        }
-        else{
-            return removeEntity(dataDictionary, nextHeaderPointer, entityName);
-        } 
-    }
-}
-
-//Asignar el tamaño del atributo
-void attributeSize(ATTRIBUTE newAtribute){
-    int number; 
-
-    switch (newAtribute.type){
-        case 1:
-            newAtribute.size = sizeof(int); 
-            break;
-
-        case 2:
-            newAtribute.size = sizeof(long); 
-            break;
-
-        case 3:
-            newAtribute.size = sizeof(float); 
-            break;
-
-        case 4:
-            printf("Enter string size: ");
-            scanf("%d", &number); 
-            fflush(stdin);
-            newAtribute.size = sizeof(char) * number; 
-            break; 
-
-        case 5: 
-            newAtribute.size = sizeof(bool); 
-            break;
-
-        default:
-            printf("Invalid attribute type.\n");
-            break;
-    }
-}
-
-//Eliminar atributo
-ATTRIBUTE removeAttribute(FILE* dataDictionary, long currentAttributePointer, const char* attributeName) {
-    long currentAttributeDirection = -1;
-
-    fseek(dataDictionary, currentAttributePointer, SEEK_SET);
-    fread(&currentAttributeDirection, sizeof(long), 1, dataDictionary);
-
-    if (currentAttributeDirection == -1) {
-        ATTRIBUTE emptyAttribute = {0};
-        return emptyAttribute;
-    } else {
-        ATTRIBUTE resultAttribute;
-        long nextAttributeDirection;
-        long nextHeaderPointer; 
-
-        fseek(dataDictionary, currentAttributeDirection, SEEK_SET);
-        fread(resultAttribute.name, sizeof(char), DATA_BLOCK_SIZE, dataDictionary);
-        nextHeaderPointer = ftell(dataDictionary) + sizeof(bool) + (sizeof(long) * 2); 
-
-        if (strcmp(resultAttribute.name, attributeName) == 0) {
-            fread(&resultAttribute.isPrimary, sizeof(bool), 1, dataDictionary); 
-            fread(&resultAttribute.type, sizeof(long), 1, dataDictionary);
-            fread(&resultAttribute.size, sizeof(long), 1, dataDictionary);  
-            fread(&resultAttribute.nextAttribute, sizeof(long), 1, dataDictionary);         
-
-            fseek(dataDictionary, currentAttributePointer, SEEK_SET);
-            fwrite(&resultAttribute.nextAttribute, sizeof(long), 1, dataDictionary);
-
-            return resultAttribute;
-        } else {
-            return removeAttribute(dataDictionary, nextHeaderPointer, attributeName);
-        }
-    }
-}
-
-//Captura entidades
-void captureEntities(FILE* dataDictionary) {
-    int keepCapturing = 1;
-
-    while (keepCapturing) {
-        printf("\n--- Capturing Entity ---\n");
-        createEntity(dataDictionary);
-
-        printf("\nDo you want to add another entity? 1)Yes 0)No: ");
-        scanf("%d", &keepCapturing);
-        getchar();
-    }
-}
-
-//Buscar entidad por nombre: muestra una lista de los nombres de las entidades para que el usuario escriba la que entidad que quiere buscar
-ENTITY searchEntityByName(FILE* dataDictionary, const char* entityName) {
-    long currentEntityDirection = -1;
-
-    fseek(dataDictionary, MAIN_ENTITY_POINTER, SEEK_SET);
-    fread(&currentEntityDirection, sizeof(currentEntityDirection), 1, dataDictionary);
-
-    while (currentEntityDirection != EMPTY_POINTER) {
-        ENTITY currentEntity;
-
-        fseek(dataDictionary, currentEntityDirection, SEEK_SET);
-        fread(currentEntity.name, DATA_BLOCK_SIZE, 1, dataDictionary);
-        fread(&currentEntity.dataPointer, sizeof(long), 1, dataDictionary);
-        fread(&currentEntity.attributesPointer, sizeof(long), 1, dataDictionary);
-        fread(&currentEntity.nextEntity, sizeof(long), 1, dataDictionary);
-
-        if (strcmp(currentEntity.name, entityName) == 0) {
-            printf("\nEntity '%s' found.\n", currentEntity.name);
-            return currentEntity; 
-        }
-
-        currentEntityDirection = currentEntity.nextEntity;
-    }
-
-    printf("\nEntity '%s' not found.\n", entityName);
-    ENTITY emptyEntity = {0};
-    return emptyEntity;
-}
-
-//Captura atributos para una entidad
-void captureAttributes(FILE* dataDictionary, ENTITY currentEntity) {
-    int keepCapturing = 1;
-
-    printf("\n--- Capturing Attribute for Entity: %s ---\n", currentEntity.name);
-    while (keepCapturing) {
-        //printf("\n--- Capturing Attribute for Entity: %s ---\n", currentEntity.name);
-        createAttribute(dataDictionary, currentEntity);
-
-        printf("\nDo you want to add another attribute? 1)Yes 0)No: ");
-        scanf("%d", &keepCapturing);
-        getchar();
-    }
-}
-
-//Funcion trampolin para buscar la entidad y agregar los atributos
-void captureAttributesForEntity(FILE* dataDictionary) {
-    char entityName[DATA_BLOCK_SIZE];
-
-    showEntities(dataDictionary);
-
-    printf("\nEnter the name of the entity to add attributes: ");
-    fgets(entityName, sizeof(entityName), stdin);
-    entityName[strcspn(entityName, "\n")] = '\0'; 
-
-    ENTITY entity = searchEntityByName(dataDictionary, entityName);
-
-    if (strlen(entity.name) > 0) {
-        captureAttributes(dataDictionary, entity);
-    } else {
-        printf("\nCannot add attributes. Entity not found.\n");
-    }
-}
-
-//Muestra las entidades con los atributos
-void showEntitiesWithAttributes(FILE* dataDictionary) {
-    long currentEntityDirection = -1;
-
-    fseek(dataDictionary, MAIN_ENTITY_POINTER, SEEK_SET);
-    fread(&currentEntityDirection, sizeof(currentEntityDirection), 1, dataDictionary);
-
-    if (currentEntityDirection == EMPTY_POINTER) {
-        printf("\nNo entities found.\n");
-        return;
-    }
-
-    printf("\n--- Entities List ---\n");
-    while (currentEntityDirection != EMPTY_POINTER) {
-        ENTITY currentEntity;
-
-        fseek(dataDictionary, currentEntityDirection, SEEK_SET);
-        fread(currentEntity.name, DATA_BLOCK_SIZE, 1, dataDictionary);
-        fread(&currentEntity.dataPointer, sizeof(long), 1, dataDictionary);
-        fread(&currentEntity.attributesPointer, sizeof(long), 1, dataDictionary);
-        fread(&currentEntityDirection, sizeof(long), 1, dataDictionary);
-
-        printf("\nEntity Name: %s\n", currentEntity.name);
-        showAttributes(dataDictionary, currentEntity.attributesPointer);
-    }
-}
-
-//Muestra los atributos de una entidad
-void showAttributes(FILE* dataDictionary, long attributesPointer) {
-    long currentAttributeDirection = attributesPointer;
-
-    if (currentAttributeDirection == EMPTY_POINTER) {
-        printf("\nNo attributes found for this entity.\n");
-        return;
-    }
-
-    printf("\n--- Attributes List ---\n");
-    while (currentAttributeDirection != EMPTY_POINTER) {
-        ATTRIBUTE currentAttribute;
-
-        fseek(dataDictionary, currentAttributeDirection, SEEK_SET);
-        fread(currentAttribute.name, DATA_BLOCK_SIZE, 1, dataDictionary);
-        fread(&currentAttribute.isPrimary, sizeof(bool), 1, dataDictionary);
-        fread(&currentAttribute.type, sizeof(long), 1, dataDictionary);
-        fread(&currentAttribute.size, sizeof(long), 1, dataDictionary);
-        fread(&currentAttributeDirection, sizeof(long), 1, dataDictionary);
-
-        printf("Name: %s\n", currentAttribute.name);
-        printf("Primary Key: %s\n", currentAttribute.isPrimary ? "Yes" : "No");
-        printf("Type: %ld\n", currentAttribute.type);
-        printf("Size: %ld bytes\n", currentAttribute.size);
-    }
-}
-/*void showAttributes(FILE* dataDictionary, long attributesPointer) {
-    long currentAttributeDirection = attributesPointer;
-
-    if (attributesPointer == EMPTY_POINTER) {
-        printf("\nNo attributes found for this entity.\n");
-        return;
-    }
-
-    printf("\n--- Attributes List ---\n");
-    while (attributesPointer != EMPTY_POINTER) {
-        ATTRIBUTE currentAttribute;
-
-        fseek(dataDictionary, attributesPointer, SEEK_SET);
-
-        // Lee la información del atributo
-        fread(currentAttribute.name, DATA_BLOCK_SIZE, 1, dataDictionary);
-        fread(&currentAttribute.isPrimary, sizeof(bool), 1, dataDictionary);
-        fread(&currentAttribute.type, sizeof(long), 1, dataDictionary);
-        fread(&currentAttribute.size, sizeof(long), 1, dataDictionary);
-        fread(&attributesPointer, sizeof(long), 1, dataDictionary);
-
-        printf("Name: %s\n", currentAttribute.name);
-        printf("Primary Key: %s\n", currentAttribute.isPrimary ? " 1)Yes" : "0)No");
-        printf("Type: %ld\n", currentAttribute.type);
-        printf("Size: %ld bytes\n", currentAttribute.size);
-    }
-}*/
-
-
-
-//Muestra los nombres de las entidades
-void showEntities(FILE* dataDictionary) {
-  long currentEntityDirection = -1;
-
-  fseek(dataDictionary, MAIN_ENTITY_POINTER, SEEK_SET);
-  fread(&currentEntityDirection, sizeof(currentEntityDirection), 1, dataDictionary);
-
-  if (currentEntityDirection == EMPTY_POINTER) {
-    printf("\nNo entities found.\n");
-    return;
-  }
-
-  printf("\n--- Entities List ---\n");
-  while (currentEntityDirection != EMPTY_POINTER) {
-    ENTITY currentEntity;
-
-    fseek(dataDictionary, currentEntityDirection, SEEK_SET);
-    fread(currentEntity.name, DATA_BLOCK_SIZE, 1, dataDictionary);
-
-    fseek(dataDictionary, sizeof(long) * 2, SEEK_CUR); 
-
-    fread(&currentEntityDirection, sizeof(long), 1, dataDictionary);
-
-    printf("\nEntity Name: %s\n", currentEntity.name);
-  }
-}
-
-//Nuevas adiciones al programa
-
-//Agregar metadatos
-void captureMetadata(FILE* dataDictionary, ENTITY* currentEntity) {
-    if (currentEntity->attributesPointer == EMPTY_POINTER) {
-        printf("No attributes defined for this entity.\n");
-        return;
-    }
-
-    ATTRIBUTE currentAttribute;
-    long attributePointer = currentEntity->attributesPointer;
-    char buffer[DATA_BLOCK_SIZE];
-    long metadataPosition;
-
-    // Mover al final del archivo para escribir los metadatos
-    fseek(dataDictionary, 0, SEEK_END);
-    metadataPosition = ftell(dataDictionary);
-
-    // Capturar metadatos para cada atributo
-    while (attributePointer != EMPTY_POINTER) {
-        // Leer el atributo actual
-        fseek(dataDictionary, attributePointer, SEEK_SET);
-        fread(&currentAttribute, sizeof(ATTRIBUTE), 1, dataDictionary);
-
-        // Capturar el dato para este atributo
-        printf("Enter data for attribute '%s': ", currentAttribute.name);
-        fgets(buffer, sizeof(buffer), stdin);
-        buffer[strcspn(buffer, "\n")] = '\0'; // Eliminar salto de línea
-
-        // Validar tamaño del dato
-        if (strlen(buffer) >= currentAttribute.size) {
-            printf("Data too large for attribute '%s'. Max size: %ld.\n", currentAttribute.name, currentAttribute.size - 1);
-            return;
-        }
-
-        // Escribir el dato al archivo
-        fwrite(buffer, sizeof(char), currentAttribute.size, dataDictionary);
-
-        // Mover al siguiente atributo
-        attributePointer = currentAttribute.nextAttribute;
-    }
-
-    // Actualizar el puntero de datos de la entidad si es la primera vez
-    if (currentEntity->dataPointer == EMPTY_POINTER) {
-        currentEntity->dataPointer = metadataPosition;
-        fseek(dataDictionary, -sizeof(ENTITY), SEEK_CUR);
-        fwrite(currentEntity, sizeof(ENTITY), 1, dataDictionary);
-    }
-
-    printf("Metadata captured successfully.\n");
-}
-
-//Capturar metadatos
-void captureMetaDataForEntity(FILE* dataDictionary) {
-    char entityName[DATA_BLOCK_SIZE];
-
-    showEntities(dataDictionary);
-
-    printf("\nEnter the name of the entity to add attributes: ");
-    fgets(entityName, sizeof(entityName), stdin);
-    entityName[strcspn(entityName, "\n")] = '\0'; 
-
-    ENTITY entity = searchEntityByName(dataDictionary, entityName);
-
-    if (strlen(entity.name) > 0) {
-        captureAttributes(dataDictionary, entity);
-    } else {
-        printf("\nCannot add attributes. Entity not found.\n");
-    }
-}
-
-//Menu principal: Abrir o crear diccionario, salir del programa
-void mainMenu() {
-    FILE* dataDictionary = NULL;
-    int option;
-    char dictionaryName[DATA_BLOCK_SIZE];
-
-    do {
-        printf("\n--- Main Menu ---\n");
-        printf("0) Exit\n");
-        printf("1) Open Data Dictionary\n");
-        printf("2) Create Data Dictionary\n");
-        printf("Select an option: ");
-        scanf("%d", &option);
-        getchar(); 
-
-        switch (option) {
+//Menu principal del diccionario de datos
+void menuPrincipal(FILE *f)
+{
+    int op = 0;
+
+    printf("\n-------- MENU PRINCIPAL --------\n");
+    printf("1. Nuevo Diccionario\n");
+    printf("2. Abrir Diccionario\n");
+    printf("3. Salir\n");
+    printf("--------------------------------\n");
+
+    printf("Seleccione una opcion:");
+    scanf("%d", &op);
+
+    do
+    {
+        switch (op)
+        {
             case 1:
-                printf("\nEnter the name of the dictionary to open: ");
-                fgets(dictionaryName, DATA_BLOCK_SIZE, stdin);
-                dictionaryName[strcspn(dictionaryName, "\n")] = '\0';
-
-                dataDictionary = fopen(dictionaryName, "r+");
-                selectionEntitiesAttributes(dataDictionary);
-                break;
-
-            case 2:
-                printf("\nEnter the name for the new dictionary: ");
-                fgets(dictionaryName, sizeof(dictionaryName), stdin);
-                dictionaryName[strcspn(dictionaryName, "\n")] = '\0';
-
-                dataDictionary = initializeDataDictionary(dictionaryName);
-                selectionEntitiesAttributes(dataDictionary);
-                break;
-
-            case 0:
-                printf("\nExiting...\n");
-                break;
-                
-            default:
-                printf("\nInvalid option. Try again.\n");
-        }
-    } while (option != 0);
-    fclose(dataDictionary);
-}
-
-//Menu de entidades: Sub-menu del menu principal
-void entityMenu(FILE* dataDictionary) {
-    int option;
-
-    do {
-        printf("\n--- Entity Menu ---\n");
-        printf("0) Back to Entityes and Attributes Menu\n");
-        printf("1) Create Entity\n");
-        printf("2) Delete Entity\n");
-        printf("3) Modify Entity\n");
-        printf("4) Print Entity List\n");
-        printf("5) Attributes menu\n");
-        printf("Select an option: ");
-        scanf("%d", &option);
-        getchar(); 
-
-        switch (option) {
-            case 1:
-                captureEntities(dataDictionary);
+                nuevoDiccionario(f);
                 break;
             case 2:
-                deleteEntity(dataDictionary);
+                abrirDiccionario(f);
                 break;
             case 3:
-                //modifyEntity(dataDictionary);
+                cerrarDiccionario(f);
+                exit(-1);
+            default:
+                printf("Ingrese una de las opciones validas 1 - 3.\n");
+        }
+    } while (op != 3);
+}
+
+//Funcion para crear un nuevo diccionario en forma wb+
+void nuevoDiccionario(FILE *f)
+{
+    cadena nombArch;
+
+    cerrarDiccionario(f);
+    printf("Ingrese el Nombre del Diccionario:");
+    scanf("%s", nombArch);
+
+    f = fopen(nombArch, "rb+");
+
+    if(f != NULL)
+    {
+        printf("Ya existe este diccionario.\n");
+        fclose(f);
+        menuPrincipal(f);
+    }
+    else
+    {
+        f = fopen(nombArch, "wb+");
+        escribeCabEntidades(f);
+        menuEntidades(f);
+    }
+}
+
+//Funcion para abrir un nuevo diccionario en forma rb+
+void abrirDiccionario(FILE *f)
+{
+    cadena nombArch;
+
+    cerrarDiccionario(f);
+
+    printf("Ingrese el nombre del Diccionario:");
+    scanf("%s", nombArch);
+
+    f = fopen(nombArch, "rb+");
+
+    if(f != NULL)
+    {
+        printf("Se abrio correctamente el diccionario.\n");
+        menuEntidades(f);
+    }
+    else
+    {
+        printf("El Diccionario no existe.\n");
+        fclose(f);
+        menuPrincipal(f);
+    }
+}
+
+//Funcion para cerrar el archivo
+void cerrarDiccionario(FILE *f)
+{
+    if(f != NULL)
+        fclose(f);
+}
+
+
+
+
+//Funciones de Entidades
+
+//Menu principal de las entidades, se mandan llamar todas las funciones de entidades, menu de aributos y menu bloques.
+void menuEntidades(FILE *f)
+{
+    int opc, nAtr;
+    Entidad entAct;
+    long direntAct;
+    Atributo arrAtr[50];
+    long tamBloque;
+    void* b;
+
+    do {
+        printf("\n-------- MENU ENTIDADES --------\n");
+        printf("1. Nueva Entidad\n");
+        printf("2. Consultar Entidades\n");
+        printf("3. Eliminar Entidades\n");
+        printf("4. Modificar Entidades\n");
+        printf("5. Menu Atributos\n");
+        printf("6. Menu Datos\n");
+        printf("7. Menu Anterior\n");
+        printf("--------------------------------\n");
+
+        printf("Seleccione una Opcion:");
+        scanf("%d", &opc);
+
+        switch (opc)
+        {
+            case 1:
+                altaEntidad(f);
+                break;
+            case 2:
+                consultaEntidad(f);
+                break;
+            case 3:
+                bajaEntidad(f);
                 break;
             case 4:
-                showEntities(dataDictionary);
+                modificaEntidad(f);
                 break;
             case 5:
-                attributeMenu(dataDictionary);
+                if(seleccionaTabla(f, &entAct, &direntAct) == 1)
+                //seleccionaTabla(f, &entAct, &direntAct);
+                //printf("\nApuntador atr: %ld", entAct.atr);
+                //printf("\nDireccion entAct: %ld", direntAct);
+                    menuAtributos(f, entAct, direntAct);
+                else
+                    printf("Ingrese una entidad valida");
                 break;
-            case 0:
-                printf("\nReturning to Entityes and Attribute Menu...\n");
-                selectionEntitiesAttributes(dataDictionary);
+            case 6:
+                seleccionaTabla(f, &entAct, &direntAct);
+                if(existeISKP(f, entAct) == true)
+                {
+                    tamBloque = cargaAtributos(f, entAct, arrAtr, &nAtr);
+                    menuBloques(f, entAct, direntAct, arrAtr, nAtr, b, tamBloque);
+                }
                 break;
+            case 7:
+                menuPrincipal(f);
             default:
-                printf("\nInvalid option. Try again.\n");
+                printf("Ingrese una de las opciones validas 1 - 7.\n");
         }
-    } while (option != 0);
+    } while (opc != 7);
+
 }
 
-//Menu de atributos
-void attributeMenu(FILE* dataDictionary) {
-    int option;
+//Inserta una entidad y verifica en que caso se va a insertar, al inicio sin datos, al inicio con datos en medio o al final.
+void insertaEntidad(FILE *f, Entidad nueva, long dir)
+{
+    Entidad aux, entAnt;
+    long cab, dirAnt;
+    cab = getCabEntidades(f);
+
+    if(cab == -1)   //caso 1
+        rescribeCabEntidades(f, dir);
+    else
+    {
+        aux = leeEntidad(f,cab);
+
+        if(strcmp(nueva.nombre,aux.nombre) < 0)
+        {
+            nueva.sig = cab;
+            rescribeCabEntidades(f, dir);
+            reescribeEntidad(f, nueva, dir);
+        }
+        else
+        {
+            while(cab!=-1 && strcmp(nueva.nombre,aux.nombre) > 0)
+            {
+                entAnt = aux;
+                dirAnt = cab;
+                cab=aux.sig;
+                if(cab != -1)
+                    aux = leeEntidad(f,cab);
+            }
+            entAnt.sig = dir;
+            reescribeEntidad(f,entAnt,dirAnt);
+            if(cab != -1)
+            {
+                nueva.sig = cab;
+                reescribeEntidad(f,nueva,dir);
+            }
+        }
+    }
+}
+
+//Verifica si la funcion que deseamos insertar existe o no. Si no existe la inserta.
+void altaEntidad(FILE *f)
+{
+    Entidad ent;
+    long pos;
+
+    ent = capturaEntidad();
+
+    if(buscaEntidad(f, ent.nombre) == -1)
+    {
+        pos = escribeEntidad(f, ent);
+        insertaEntidad(f, ent, pos);
+        fseek(f, 0, SEEK_END);
+    }
+    else
+        printf("La Entidad ya existe.\n");
+}
+
+//Se encarga de capturar el nombre de la entidad e iniciar sus apuntadores en -1.
+Entidad capturaEntidad()
+{
+    Entidad ent;
+
+    printf("Nombre de la Entidad:");
+    scanf("%s", ent.nombre);
+
+    ent.sig = ent.atr = ent.data = (long) - 1;
+
+    return ent;
+}
+
+//Busca la entidad en la lista por su nombre y regresa la direcciion en la que se encuentra.
+long buscaEntidad(FILE *f, cadena entNom)
+{
+    Entidad ent;
+    long cab;
+
+    cab = getCabEntidades(f);
+
+    while(cab != -1)
+    {
+        ent = leeEntidad(f,cab);
+
+        if(strcmp(entNom, ent.nombre) == 0)
+            return cab;
+
+        cab = ent.sig;
+    }
+    return -1;
+}
+
+//Escribe la entidad dentro del archivo en la posicion que indique ftell.
+long escribeEntidad(FILE *f, Entidad ent)
+{
+    long dir;
+
+    fseek(f, 0, SEEK_END);
+    dir = ftell(f);
+    fwrite(&ent, sizeof (Entidad), 1, f);
+
+    return dir;
+}
+
+//Cuando se crea el archivo nuevo, esta funcion escribe un -1 al inicio del archivo.
+void escribeCabEntidades(FILE *f)
+{
+    long cab = -1;
+
+    fseek(f, 0, SEEK_SET);
+    fwrite(&cab, sizeof (long), 1, f);
+}
+
+// Nos regresa en que posicion se encuentra la primera entidad del archivo.
+long getCabEntidades(FILE *f)
+{
+    long cab;
+
+    fseek(f,0,SEEK_SET);
+    fread(&cab,sizeof (long),1,f);
+
+    return cab;
+}
+
+//Lee la entidad del archivo dependiendo de la direccion que reciba.
+Entidad leeEntidad(FILE  *f,long dir)
+{
+    Entidad ent;
+
+    fseek(f,dir,SEEK_SET);
+    fread(&ent,sizeof(Entidad),1,f);
+
+    return ent;
+}
+
+//Sobreescribe una entidad en la smisma direccion con otra.
+void reescribeEntidad(FILE *f,Entidad ent, long dir)
+{
+    fseek(f,dir,SEEK_SET);
+    fwrite(&ent,sizeof(Entidad),1,f);
+}
+
+//Se encarga de imprimir todas las entiddes del archivo.
+void consultaEntidad(FILE *f)
+{
+    Entidad  ent;
+    long cab = getCabEntidades(f);
+
+    printf("\n------------ENTIDADES------------\n");
+
+    while (cab != -1)
+    {
+        ent = leeEntidad(f,cab);
+        printf("%s\n", ent.nombre);
+        cab = ent.sig;
+    }
+
+    printf("---------------------------------\n\n");
+}
+
+//Verifica si la entidad que queremos eliminar existe o no.
+void bajaEntidad(FILE *f)
+{
+    long dir;
+    cadena nombEnt;
+
+    pideNomEnt(nombEnt);
+
+    if(buscaEntidad(f, nombEnt) != -1)
+    {
+        dir = eliminaEntidad(f, nombEnt);
+    }
+    else
+        printf("La entidad %s no existe.", nombEnt);
+}
+
+//Verifica donde esta la entidad que se quiere eliminar y se aplican cada caso correspondiente, al inicio, al medio o al final.
+long eliminaEntidad(FILE *f, cadena nomb)
+{
+    long posEntAnt;
+    Entidad entAnt;
+    long cab = getCabEntidades(f);
+    Entidad ent = leeEntidad(f,cab);
+
+    if(strcmp(ent.nombre, nomb) == 0)
+    {
+        rescribeCabEntidades(f, ent.sig);
+        return cab;
+    }
+    else
+    {
+        while (cab != -1 && strcmp(ent.nombre, nomb) < 0)
+        {
+            posEntAnt = cab;
+            entAnt = ent;
+            cab = ent.sig;
+
+            if(cab != -1)
+                ent = leeEntidad(f,cab);
+        }
+
+        if(strcmp(ent.nombre, nomb) == 0)
+        {
+            entAnt.sig = ent.sig;
+            reescribeEntidad(f, entAnt, posEntAnt);
+        }
+    }
+    return cab;
+}
+
+//Se encarga de modificar la cabecera de las entidades en el archivo.
+void rescribeCabEntidades(FILE *f,long dir)
+{
+    long cab = dir;
+    fseek(f,0 , SEEK_SET);
+    fwrite(&cab,sizeof(long),1,f);
+}
+
+//Nos sirve para modificar una entidad con otra si es que la que queremos modificar existe y la nueva no existe.
+void modificaEntidad(FILE *f)
+{
+    cadena nombEnt, nombEntNueva;
+    Entidad nuevaEnt;
+    long dir;
+
+    printf("\nEntidad que desea modificar\n");
+    pideNomEnt(nombEnt);
+
+    if(buscaEntidad(f, nombEnt) != -1)
+    {
+        printf("\nNueva Entidad\n");
+        nuevaEnt = capturaEntidad();
+
+        if(buscaEntidad(f, nuevaEnt.nombre) == -1)
+        {
+            dir = eliminaEntidad(f, nombEnt);
+            strcpy(nombEnt, nombEntNueva);
+            reescribeEntidad(f, nuevaEnt, dir);
+            insertaEntidad(f, nuevaEnt, dir);
+        }
+        else
+            printf("Error. La entidad que desea modificar ya existe.\n");
+    }
+    else
+        printf("Error. La entidad que desea modificar no existe.\n");
+}
+
+//Unicamente regresa un nombre.
+void pideNomEnt(cadena nombEnt)
+{
+    printf("Ingresa el nombre de la Entidad:");
+    scanf("%s", nombEnt);
+    printf("\n");
+}
+
+
+
+
+//Funciones de Atributos
+
+//Menu principal de los atributos, nos da acceso a todas las funciones de estos.
+void menuAtributos(FILE *f, Entidad entAct, long direntAct)
+{
+    int opc;
 
     do {
-        printf("\n--- Attribute Menu ---\n");
-        printf("0) Back to Entityes and Attributes Menu\n");
-        printf("1) Create Attribute\n");
-        printf("2) Delete Attribute\n");
-        printf("3) Modify Attribute\n");
-        printf("4) Print Attribute List\n");
-        printf("Select an option: ");
-        scanf("%d", &option);
-        getchar();
+        opc=opcAtr();
 
-        switch (option) {
+        switch(opc)
+        {
             case 1:
-                captureAttributesForEntity(dataDictionary);
+                altaAtributo(f,&entAct,direntAct);
                 break;
             case 2:
-                deleteAttribute(dataDictionary);
+                consultaAtributo(f,entAct);
                 break;
             case 3:
-                //modifyAttribute(dataDictionary);
+                bajaAtributo(f,&entAct,direntAct);
                 break;
             case 4:
-                showEntitiesWithAttributes(dataDictionary);
+                modificaAtributo(f,&entAct,direntAct);
                 break;
-            case 0:
-                selectionEntitiesAttributes(dataDictionary);
-                printf("\nReturning to Entityes and Attributes Menu...\n");
+            case 5:
+                printf("\nRegresando a menu de entidades...\n ");
+                menuEntidades(f);
                 break;
             default:
-                printf("\nInvalid option. Try again.\n");
+                printf("Ingresa una opcion del 1 al 5 ");
         }
-    } while (option != 0);
+    }while(opc != 5);
 }
 
-void selectionEntitiesAttributes(FILE* dataDictionary) {
-    int option; 
+//Seleccion de opcion para el menu de atributos.
+int opcAtr()
+{
+    int op;
 
-    do{ 
-        printf("\nSelect an option \n");
-        printf("0)Back to main menu\n");
-        printf("1) Entityes Menu\n");
-        scanf("%d", &option);
-        getchar(); 
-    
-        switch (option) {
-            case 1:
-                entityMenu(dataDictionary);
-                break;
-    
-            case 2: 
-                attributeMenu(dataDictionary);
-                break;
-    
-            case 0:
-                printf("\nReturning to Main Menu...\n");
-                mainMenu();
-                break;
+    printf("\n-------- MENU ATRIBUTOS --------\n");
+    printf("1. Alta Atributo\n");
+    printf("2. Consultar Atributo\n");
+    printf("3. Eliminar Atributo\n");
+    printf("4. Modificar Atributo\n");
+    printf("5. Menu Anterior\n");
+    printf("----------------------------------\n");
 
-            default:
-            printf("Kindly choose the correct option.");
-                
+    scanf("%d", &op);
+
+    return op;
+}
+
+//Con esta funcion indicamos con que entidad queremos trabajar y si existe o no.
+long seleccionaTabla(FILE *f, Entidad *entAct, long *direntAct)
+{
+    printf("Con que Entidad deseas trabajar:");
+    scanf("%s", entAct->nombre);
+
+    *direntAct = buscaEntidad(f, entAct->nombre);
+
+    if(*direntAct != -1)
+    {
+        *entAct = leeEntidad(f, *direntAct);
+        printf("\nApuntador atr: %ld", entAct->atr);
+        printf("\nDireccion entAct: %ld", *direntAct);
+        return 1;
+    }
+    else
+        printf("Error. La entidad no existe.\n");
+
+    return -1;
+}
+
+Atributo capturaAtributo()
+{
+    Atributo nuevoAtributo;
+    int tamCad;
+
+    // Captura del nombre del atributo
+    printf("Ingrese el nombre del atributo: ");
+    scanf("%s", nuevoAtributo.nombre);
+
+    // Captura del tipo de dato
+    printf("Ingrese el tipo del atributo:\n 1. Cadena\n 2. Entero\n 3. Float\n 4. Double\n 5. Long\n");
+    scanf("%d", &nuevoAtributo.tipo);
+
+    // Asignación del tamaño del atributo según el tipo
+    switch (nuevoAtributo.tipo)
+    {
+        case 1: // Cadena
+            printf("Tamaño de la cadena: ");
+            scanf("%d", &tamCad);
+            nuevoAtributo.tam = (tamCad * sizeof(char));
+            break;
+        case 2: // Entero
+            nuevoAtributo.tam = (sizeof(int));
+            break;
+        case 3: // Float
+            nuevoAtributo.tam = (sizeof(float));
+            break;
+        case 4: // Double
+            nuevoAtributo.tam = (sizeof(double));
+            break;
+        case 5: // Long
+            nuevoAtributo.tam = (sizeof(long));
+            break;
+        default: // Tipo inválido
+            printf("Tipo de dato no válido.\n");
+            nuevoAtributo.tam = 0;
+            return nuevoAtributo; // Salir de la función en caso de error
+    }
+
+    // Captura de si es clave única
+    printf("¿Es clave única (iskp del atributo)?\n S. Sí\n N. No\n");
+    getchar(); // Consumir el carácter de nueva línea que dejó scanf
+    scanf("%c", &nuevoAtributo.iskp);
+
+    // Captura de la descripción
+    printf("Ingrese la descripción del atributo: ");
+    getchar(); // Consumir el carácter de nueva línea que dejó scanf
+    fgets(nuevoAtributo.descripcion, sizeof(nuevoAtributo.descripcion), stdin);
+
+    // Asegurar que no queden caracteres adicionales
+    size_t len = strlen(nuevoAtributo.descripcion);
+    if (len > 0 && nuevoAtributo.descripcion[len - 1] == '\n') {
+        nuevoAtributo.descripcion[len - 1] = '\0'; // Eliminar el carácter de nueva línea
+    }
+
+    // Inicializar el puntero siguiente a -1
+    nuevoAtributo.sig = -1;
+
+    return nuevoAtributo;
+}
+
+
+//Se encarga de buscar un atributo dentro del archivo y si este existe o no.
+long buscaAtributo(FILE *f, cadena atrNom, Entidad entAct)
+{
+    long cab;
+    Atributo atr;
+
+    cab = entAct.atr;
+
+    while(cab != -1)
+    {
+        atr = leeAtributo(f, cab);
+
+        if(strcmp(atr.nombre, atrNom) == 0)
+            return cab;
+
+        cab = atr.sig;
+    }
+    return -1;
+}
+
+//Sobreescribe un atributo en otro con la direccion dada.
+void reescribeAtributo(FILE *f, Atributo atr, long dir)
+{
+    fseek(f,dir,SEEK_SET);
+    fwrite(&atr,sizeof (atr),1,f);
+}
+
+//Lee un atributo en el archivo en una direccion dada.
+Atributo leeAtributo(FILE *f, long dir)
+{
+    Atributo atr;
+
+    fseek(f, dir, SEEK_SET);
+    fread(&atr, sizeof(Atributo), 1, f);
+
+    return atr;
+}
+
+//Escribe el atributo dentro del archivo dependiendo de la posicion.
+long escribeAtributo(FILE *f, Atributo atr)
+{
+    long pos;
+
+    fseek(f,0,SEEK_END);
+    pos = ftell(f);
+    fwrite(&atr,sizeof(atr),1,f);
+
+    return pos;
+}
+
+//Verifica si el atributo que queremos insertar existe o no.
+void altaAtributo(FILE *f, Entidad *entAct, long direntAct)
+{
+    Atributo nuevoAtr;
+    long dirNuevo;
+
+    nuevoAtr = capturaAtributo();
+
+    if(buscaAtributo(f, nuevoAtr.nombre, *entAct) == -1)
+    {
+        dirNuevo = escribeAtributo(f, nuevoAtr);
+        insertaAtributo(f, nuevoAtr, dirNuevo, entAct, direntAct);
+    }
+    else
+        printf("Error. El Atributo que desea agregar ya existe.");
+}
+
+//Verifica en que caso se va a insertar el atributo, al inicio sin datos, al inicio con datos, al medio o al final.
+void insertaAtributo(FILE *f, Atributo atr, long dir, Entidad *entAct, long direntAct)
+{
+    long cab, dirAnt;
+    Atributo atrAux, atrAct, atrAnt;
+
+    cab = entAct->atr;
+
+    if(cab == -1)
+    {
+        entAct->atr = dir;
+        reescribeEntidad(f, *entAct, direntAct);
+    }
+    else
+    {
+        atrAct = leeAtributo(f, cab);
+
+        if(strcmp(atr.nombre, atrAct.nombre) < 0)
+        {
+            atr.sig = cab;
+            entAct->atr = dir;
+            reescribeAtributo(f, atr, dir);
+            reescribeEntidad(f, *entAct, direntAct);
+        }
+        else
+        {
+            while (cab != -1 && strcmp(atr.nombre, atrAct.nombre) > 0)
+            {
+                atrAnt = atrAct;
+                dirAnt = cab;
+                cab = atrAct.sig;
+
+                if(cab != -1)
+                    atrAct = leeAtributo(f, cab);
             }
-         }
-    while (option != 0);
-}
-
-//Borrar una entidad
-void deleteEntity(FILE* dataDictionary) {
-    char entityName[DATA_BLOCK_SIZE];
-
-    showEntities(dataDictionary);
-
-    printf("\nEnter the name of the entity to delete: ");
-    fgets(entityName, sizeof(entityName), stdin);
-    entityName[strcspn(entityName, "\n")] = '\0'; 
-
-    ENTITY entity = searchEntityByName(dataDictionary, entityName);
-
-    if (strlen(entity.name) > 0) {
-        long mainEntityPointer = EMPTY_POINTER;
-        fseek(dataDictionary, MAIN_ENTITY_POINTER, SEEK_SET);
-        fread(&mainEntityPointer, sizeof(long), 1, dataDictionary);
-
-        ENTITY resultEntity = removeEntity(dataDictionary, mainEntityPointer, entityName);
-
-        if (strlen(resultEntity.name) > 0) {
-            printf("\nEntity '%s' deleted successfully.\n", entityName);
-        } else {
-            printf("\nFailed to delete entity '%s'.\n", entityName);
+            if (cab != -1)
+            {
+                atr.sig = atrAnt.sig;
+                reescribeAtributo(f, atr, dir);
+            }
+            // Inserta el nuevo atributo en la posición de manera ordenada
+            atrAnt.sig = dir;
+            reescribeAtributo(f, atrAnt, dirAnt);
         }
-    } else {
-        printf("\nEntity '%s' not found. Cannot delete.\n", entityName);
     }
 }
 
-//Borrar un atributo de una entidad
-void deleteAttribute(FILE* dataDictionary) {
-    char entityName[DATA_BLOCK_SIZE];
-    char attributeName[DATA_BLOCK_SIZE];
+//Verifica si el atributo que queremos eliminar existe o no.
+void bajaAtributo(FILE *f, Entidad *entAct, long direntAct)
+{
+    //Localiza el atributo y si no existe marca un error
+    cadena nomAtr;
+    Atributo atr;
+    long cab;
 
-    showEntities(dataDictionary); // Muestra las entidades disponibles
+    printf("Nombre del Atributo a eliminar:");
+    scanf("%s", nomAtr);
 
-    printf("\nEnter the name of the entity to view attributes: ");
-    fgets(entityName, sizeof(entityName), stdin);
-    entityName[strcspn(entityName, "\n")] = '\0'; // Elimina el salto de línea
-
-    ENTITY resultEntity = searchEntityByName(dataDictionary, entityName);
-
-    if (strlen(resultEntity.name) > 0) {
-        showAttributes(dataDictionary, resultEntity.attributesPointer); // Muestra los atributos de la entidad
-
-        printf("\nEnter the name of the attribute to delete: ");
-        fgets(attributeName, sizeof(attributeName), stdin);
-        attributeName[strcspn(attributeName, "\n")] = '\0'; // Elimina el salto de línea
-
-        ATTRIBUTE removedAttribute = removeAttribute(dataDictionary, resultEntity.attributesPointer, attributeName);
-
-        if (strlen(removedAttribute.name) > 0) {
-            printf("\nAttribute '%s' deleted successfully.\n", attributeName);
-        } else {
-            printf("\nAttribute '%s' not found. Cannot delete.\n", attributeName);
-        }
-    } else {
-        printf("\nEntity '%s' not found. Cannot delete attribute.\n", entityName);
+    if(buscaAtributo(f, nomAtr, *entAct) != -1)
+    {
+        eliminaAtributo(f, nomAtr, entAct, direntAct);
+        printf("Se elimino correctamente el atributo.\n");
     }
+    else
+        printf("El atributo no existe.\n");
+
+}
+
+//Verifica en que caso se va a eliminar el atributo.
+long eliminaAtributo(FILE *f, cadena atrNom, Entidad *entAct, long direntAct)
+{
+    long cab, cabAnt;
+    Atributo atr, atrAnt;
+
+    cab = entAct->atr;
+    atr = leeAtributo(f, cab);
+
+    if(strcmp(atr.nombre, atrNom) == 0)
+    {
+        entAct->atr = atr.sig;
+        reescribeEntidad(f, *entAct, direntAct);
+    }
+    else
+    {
+        while(cab != -1 && strcmp(atr.nombre, atrNom) < 0)
+        {
+            cabAnt = cab;
+            atrAnt = atr;
+            cab = atr.sig;
+
+            if (cab != -1)
+                atr = leeAtributo(f, cab);
+        }
+        atrAnt.sig = atr.sig;
+        reescribeAtributo(f, atrAnt, cabAnt);
+    }
+    return cab;
+}
+
+//Nos permite modificar un atributo y verifica si el que queremos modifcar existe y que el que queremos insertar no exista.
+void modificaAtributo(FILE *f, Entidad *entAct, long direntAct)
+{
+    Atributo nuevoAtr;
+    cadena nombAtr;
+    long dirAtr;
+
+    printf("\nNombre del atributo que desea modificar\n");
+    pideNombAtr(nombAtr);
+
+    if(buscaAtributo(f, nombAtr, *entAct) != -1)
+    {
+        printf("\nNuevo atributo\n");
+        nuevoAtr = capturaAtributo();
+
+        if(buscaAtributo(f, nuevoAtr.nombre, *entAct) == -1)
+        {
+            dirAtr = eliminaAtributo(f, nombAtr, entAct, direntAct);
+            reescribeAtributo(f, nuevoAtr, dirAtr);
+            insertaAtributo(f, nuevoAtr, dirAtr, entAct, direntAct);
+        }
+        else
+            printf("Error. No se puede modificar el atributo porque YA existe el Atributo.\n");
+    }
+    else
+        printf("Error. No se puede modificar el atributo porque NO existe.\n");
+}
+
+//Funcion que nos permite visualizar los atributos.
+void consultaAtributo(FILE *f, Entidad entAct)
+{
+    Atributo atr;
+    long cab = entAct.atr;
+
+    printf("--------------------------------------------------- ATRIBUTOS ---------------------------------------------------\n");
+    printf("Entidad activa: %s\n\n", entAct.nombre);
+
+    printf("NOMBRE\t\t TIPO\t TAMANIO\t CLAVE PRIMARIA\t SIGUIENTE\t DESCRIPCION\n");
+
+    while (cab != -1)
+    {
+        atr = leeAtributo(f, cab);
+        printf("%s\t\t", atr.nombre);
+
+        switch (atr.tipo)
+        {
+            case 1:
+                printf("Cadena\t\t");
+                break;
+            case 2:
+                printf("Entero\t\t");
+                break;
+            case 3:
+                printf("Float\t\t");
+                break;
+            case 4:
+                printf("Double\t\t");
+                break;
+            case 5:
+                printf("Long\t\t");
+                break;
+        }
+
+        printf("%d\t\t", atr.tam);
+        printf("%c\t\t", atr.iskp);
+        printf("%ld\t\t", atr.sig);
+        printf("%s\n", atr.descripcion);
+
+        cab = atr.sig;
+    }
+    printf("-----------------------------------------------------------------------------------------------------------------\n");
+}
+
+//Nos pide un nombre de un atributo.
+void pideNombAtr(cadena nombAtr)
+{
+    printf("Ingresa el nombre del atributo:");
+    scanf("%s", nombAtr);
+    printf("\n");
+}
+
+
+
+
+//Funciones de Bloques
+
+//Verifica si en los atributos existe una clave primaria
+bool existeISKP(FILE *f, Entidad entAct)
+{
+    int cont = 0;
+    long cab = entAct.atr;
+    Atributo atr;
+
+    while (cab != -1)
+    {
+        atr = leeAtributo(f, cab);
+
+        if(atr.iskp == 'S')
+            cont++;
+
+        cab = atr.sig;
+    }
+
+    if(cont == 1)
+        return true;
+    else if(cont > 1)
+        printf("\nError. Existe mas de una clave\n");
+    else{
+        printf("\nError. No existe clave.\n");
+        return false;
+    }
+}
+
+//Crea un arreglo de atributos e inserta en la posicion [0] la clave primaria, regresa su tamaño y el numero de atributos.
+long cargaAtributos(FILE *f, Entidad entAct, Atributo *arrAtr, int *nAtr)
+{
+    long tamBloque = sizeof(long);
+    long cab = entAct.atr;
+    int cont = 1;
+    Atributo atr;
+
+    while(cab != -1)
+    {
+        atr = leeAtributo(f, cab);
+
+        if(atr.iskp == 'S')
+        {
+            arrAtr[0] = atr;
+            cont--;
+        }
+
+        if(atr.iskp == 'N')
+            arrAtr[cont] = atr;
+
+        cont++;
+
+        cab = atr.sig;
+        tamBloque += atr.tam;
+    }
+
+    *nAtr = cont;
+    return tamBloque;
+}
+
+//Compara la clave primaria de dos bloque para verificar si son iguales o diferentes.
+double comparaBloques(Atributo *arrAtr, void* b1, void* b2)
+{
+    switch (arrAtr[0].tipo)
+    {
+        case 1:
+            return strcmp((char *)(b1 + sizeof(long)), (char *)(b2 + sizeof(long)));
+        case 2:
+            return *((int *)(b1 + sizeof(long))) - *((int *)(b2 + sizeof(long)));
+        case 3:
+            return *((float *)(b1 + sizeof(long))) - *((float *)(b2 + sizeof(long)));
+        case 4:
+            return *((double *)(b1 + sizeof(long))) - *((double *)(b2 + sizeof(long)));
+        case 5:
+            return *((long *)(b1 + sizeof(long))) - *((long *)(b2 + sizeof(long)));
+    }
+}
+
+//Unicamente soolo regresa la opcion del menu de bloques.
+int opcBlq()
+{
+    int opc;
+
+    printf("\n-------- MENU DATOS --------\n");
+    printf("1. Nuevo Registro\n");
+    printf("2. Consultar Registro\n");
+    printf("3. Eliminar Registro\n");
+    printf("4. Modificar Registro\n");
+    printf("5. Menu Anterior\n");
+    printf("----------------------------------\n");
+
+    scanf("%d", &opc);
+
+    return opc;
+}
+
+//Menu de bloques se encarga de mandar llamar todas las funciones de bloques, es accesible unicamente si existe una unica clave primaria dentro de los atributos.
+void menuBloques(FILE *f, Entidad entAct, long direntAct, Atributo *arrAtr, int nAtr, void* b, long tamBloque)
+{
+    int opc;
+    do {
+        opc = opcBlq();
+
+        switch(opc)
+        {
+            case 1:
+                altaSecuencial(f, &entAct, direntAct, arrAtr, nAtr, tamBloque);
+                break;
+            case 2:
+                consultaBloque(f, entAct, arrAtr, nAtr, b, tamBloque);
+                break;
+            case 3:
+                bajaSecuencial(f, &entAct, direntAct, arrAtr, nAtr, tamBloque);
+                break;
+            case 4:
+                //PENDIENTE
+                modificaBloque(f,&entAct, direntAct, arrAtr, nAtr, tamBloque);
+                break;
+            case 5:
+                printf("\nRegresando a menu de entidades...\n ");
+                menuEntidades(f);
+                break;
+            default:
+                printf("Ingresa una opcion del 1 al 5 ");
+        }
+    }while(opc != 5);
+}
+
+//Captura los datos del bloque de datos los cuales corresponden a los atributos.
+void* capturaBloque(Atributo *arrAtr, long tamBloque, int nAtr)
+{
+    void* p = malloc(tamBloque);
+    *((long*)p+0) = (long) - 1;
+    long des = sizeof(long);
+    int i = 0;
+
+    while(i < nAtr)
+    {
+        printf("Ingrese el/la %s:", arrAtr[i].nombre);
+
+        switch (arrAtr[i].tipo)
+        {
+            case 1:
+            {
+                char cad[500];
+                fflush(stdin);
+                scanf("%s", cad);
+                cad[arrAtr[i].tam - 1] = '\0';
+                strcpy((char *)(p+des),cad);
+                break;
+            }
+            case 2:
+            {
+                int entero;
+                scanf("%d", &entero);
+                *((int*)(p+des)) = entero;
+                break;
+            }
+            case 3:
+            {
+                float flotante;
+                scanf("%f", &flotante);
+                *((float*)(p+des)) = flotante;
+                break;
+            }
+            case 4:
+            {
+                double doble;
+                scanf("%lf", &doble);
+                *(double*)(p+des) = doble;
+                break;
+            }
+            case 5:
+            {
+                long largo;
+                scanf("%ld", &largo);
+                *((long*)(p+des)) = largo;
+                break;
+            }
+        }
+        des += arrAtr[i].tam;
+        i++;
+    }
+    return p;
+}
+
+//Verifica si el bloque que queremos insertar no existe.
+void altaSecuencial(FILE *f, Entidad *entAct, long direntAct, Atributo *arrAtr, int nAtr, long tamBloque)
+{
+    void *nuevo;
+    long dirnuevo;
+
+    nuevo = capturaBloque(arrAtr, tamBloque, nAtr);
+
+    if(buscaBloque(f, *entAct, arrAtr, nuevo, tamBloque) == -1)
+    {
+        dirnuevo = escribeBloque(f, nuevo, tamBloque);
+        insertaBloque(f, entAct, direntAct, arrAtr, nuevo, tamBloque, dirnuevo);
+    }
+    else
+        printf("\nError. El bloque YA existe.\n");
+}
+
+//Verifica en donde va acomodado el dato dependiendo de su clave primaria.
+void insertaBloque(FILE *f, Entidad *entAct, long direntAct, Atributo *arrAtr, void* b, long tamBloque, long dir)
+{
+    long cab = entAct->data;
+    long dirAnt;
+    void* bAct;
+    void* bAnt;
+
+    if(cab == -1)
+    {
+        entAct->data = dir;
+        reescribeEntidad(f,*entAct,direntAct);
+    }
+    else
+     {
+        bAct = leeBloque(f, cab, tamBloque);
+
+        if(comparaBloques(arrAtr, bAct,b) > 0)
+        {
+            *((long*)(b+0))=cab;
+            reescribeBloque(f, b, dir, tamBloque);
+            entAct->data = dir;
+            reescribeEntidad(f,*entAct,direntAct);
+            free(bAct);
+        }
+        else
+        {
+            while(cab != -1 && comparaBloques(arrAtr, bAct,b) < 0)
+            {
+                if(bAnt != NULL)
+                    free(bAnt);
+
+                bAnt = bAct;
+                dirAnt = cab;
+                cab = *((long*)(bAct+0));
+
+                if(cab!=-1)
+                    bAct = leeBloque(f, cab, tamBloque);
+            }
+            if(cab!=-1)
+            {
+                *((long*)(b+0)) = *((long*)(bAnt+0));
+                reescribeBloque(f, b, dir, tamBloque);
+            }
+
+            *((long*)(bAnt+0)) = dir;
+            reescribeBloque(f, bAnt, dirAnt, tamBloque);
+
+            if(bAct != bAnt)
+            {
+                free(bAct);
+                free(bAnt);
+            }
+        }
+    }
+}
+
+//Lee el bloque dentro del archivo en la direccion y el tamaño del bloque que le pasemos
+void* leeBloque(FILE *f, long dir, long tamBloque)
+{
+    void* b = malloc(tamBloque);
+
+    fseek(f, dir, SEEK_SET);
+    fread(b, tamBloque, 1, f);
+
+    return b;
+}
+
+//Escribe el bloque en la posicion que regrese fell con el tamaño del bloque.
+long escribeBloque(FILE *f, void* b, long tamBloque)
+{
+    long pos;
+
+    fseek(f, 0, SEEK_END);
+    pos = ftell(f);
+    fwrite(b, tamBloque, 1, f);
+
+    return pos;
+}
+
+//Verifica si un bloque existe y regresa su direccion.
+long buscaBloque(FILE *f, Entidad entAct, Atributo *arrAtr, void* b, long tamBloque)
+{
+    void* data;
+    long cab;
+
+    cab = entAct.data;
+
+    while (cab != -1)
+    {
+        data = leeBloque(f, cab, tamBloque);
+
+        if(comparaBloques(arrAtr, data, b) == 0)
+        {
+            free(data);
+            return cab;
+        }
+
+        cab = *((long *) data);
+        free(data);
+    }
+    return -1;
+}
+
+//Sobreescribe un bloque dentro de un archivo con otro.
+void reescribeBloque(FILE *f, void* b, long dir, long tamBloque)
+{
+    fseek(f,dir,SEEK_SET);
+    fwrite(b,tamBloque,1,f);
+}
+
+//Verifica si los dos bloques que recibe son validos o no.
+long existeBloqueDif(FILE *f, Entidad entAct, Atributo *arrAtr, void* b, void* bMod, long tamBloque)
+{
+    long cab;
+    void* data;
+    long des = sizeof(long);
+    cab = entAct.data;
+
+    while(cab != -1)
+    {
+        data = leeBloque(f, cab, tamBloque);
+
+        //printf("\nclave %d\n", *((int*)(data+des)));
+
+        if(comparaBloques(arrAtr, data, b) == 0 )
+        {
+            //printf("\nclave %d\n", *((int*)(b+des)));
+            //printf("\nclave %d\n", *((int*)(bMod+des)));
+            if(comparaBloques(arrAtr, data,bMod) == 0)
+            {
+                free(data);
+                return -1;
+            }
+            else
+                return cab;
+        }
+        cab = *((long*)data);
+    }
+    return -1;
+}
+
+//Se encarga de modificar los bloques, y verifica si existe o no cada bloque.
+void modificaBloque(FILE *f, Entidad *entAct, long direntAct, Atributo *arrAtr, int nAtr,  long tamBloque)
+{
+    long dir;
+    void *b, *nuevo;
+    long resp;
+
+    b = capturaBloqueClave(arrAtr, tamBloque, nAtr);
+
+    if(buscaBloque(f, *entAct, arrAtr, b, tamBloque) != -1)
+    {
+        printf("\nBloque Nuevo:\n");
+        nuevo = capturaBloque(arrAtr, tamBloque, nAtr);
+        resp = existeBloqueDif(f, *entAct, arrAtr, nuevo, b, tamBloque);
+        //printf("\n respuesta %ld\n", resp);
+
+        if( resp == -1)
+        {
+            dir = eliminaBloque(f, entAct, direntAct, arrAtr, b, tamBloque);
+            reescribeBloque(f, nuevo, dir, tamBloque);
+            insertaBloque(f, entAct, direntAct, arrAtr, nuevo, tamBloque, dir);
+        }
+        else
+            printf("\nError. El bloque YA existe.\n");
+    }
+    else
+        printf("\nError. El bloque NO existe.\n");
+}
+
+//verifica si el bloque que queremos eliminar existe o no.
+void bajaSecuencial(FILE *f, Entidad *entAct, long direntAct, Atributo *arrAtr, int nAtr, long tamBloque)
+{
+    void *b;
+    long dir;
+
+    b = capturaBloqueClave(arrAtr, tamBloque, nAtr);
+
+    if(buscaBloque(f, *entAct, arrAtr, b, tamBloque) != -1)
+    {
+        eliminaBloque(f, entAct, direntAct, arrAtr, b, tamBloque);
+        printf("\nSe elimino correctamente.\n");
+    }
+    else
+        printf("\nError. El bloque NO existe.\n");
+}
+
+//Se encarga de eliminar los bloques y en que caso se elimina.
+long eliminaBloque(FILE *f, Entidad *entAct, long direntAct, Atributo *arrAtr, void* b, long tamBloque)
+{
+    long cab = entAct->data;
+    long dirAnt;
+    void* bAnt = NULL;
+    void* bAux;
+
+    if(cab != -1)
+    {
+        bAux = leeBloque(f, cab, tamBloque);
+
+        if (comparaBloques(arrAtr, b, bAux) == 0)
+        {
+            entAct->data = *((long *) bAux);
+            reescribeEntidad(f, *entAct, direntAct);
+            free(bAux);
+            free(b);
+            return cab;
+        }
+        else
+        {
+            while (cab != -1 && comparaBloques(arrAtr, b, bAux) > 0)
+            {
+                if (bAnt != NULL)
+                    free(bAnt);
+
+                bAnt = bAux;
+                dirAnt = cab;
+                cab = *((long *) bAux);
+
+                if (cab != -1)
+                    bAux = leeBloque(f, cab, tamBloque);
+            }
+
+            if (cab != -1)
+            {
+                *((long *) bAnt) = *((long *) bAux);
+                reescribeBloque(f, bAnt, dirAnt, tamBloque);
+            }
+        }
+        free(b);
+        free(bAnt);
+        return cab;
+    }
+    return -1;
+}
+
+//Se encarga de imprimir y mostrar los bloques de datos dentro de la entidad.
+void consultaBloque(FILE *f, Entidad entAct, Atributo *arrAtr, int nAtr, void* b, long tamBloque)
+{
+  int i;
+    long des = sizeof(long);
+    long cab = entAct.data;
+
+    printf("\n--------------------------------------------------- BLOQUES ---------------------------------------------------\n");
+    printf("Entidad activa: %s\n\n", entAct.nombre);
+
+    for(i = 0; i < nAtr; ++i)
+        printf("%s\t\t", arrAtr[i].nombre);
+
+    printf("\n");
+
+    while (cab != -1)
+    {
+        des = sizeof(long);
+        b = leeBloque(f, cab, tamBloque);
+
+        for ( i = 0; i < nAtr; ++i)
+        {
+            switch (arrAtr[i].tipo)
+            {
+                case 1:
+                    printf("%s\t\t", (char *)(b+des));
+                    break;
+                case 2:
+                {
+                    int ent;
+                    ent = *((int*)(b+des));
+                    printf("%d\t\t", ent);
+                    break;
+                }
+                case 3:
+                {
+                    float flot;
+                    flot = *((float*)(b+des));
+                    printf("%0.2f\t\t", flot);
+                    break;
+                }
+                case 4:
+                {
+                    double db;
+                    db = *((double*)(b+des));
+                    printf("%lf\t\t", db);
+                    break;
+                }
+                case 5:
+                {
+                    long l;
+                    l = *((long*)(b+des));
+                    printf("%ld\t\t", l);
+                    break;
+                }
+            }
+            des += arrAtr[i].tam;
+        }
+        printf("\n");
+        cab = *((long*)(b+0));
+    }
+
+    printf("\n-----------------------------------------------------------------------------------------------------------------\n");
+}
+
+//Captura unicamete la clav eprimaria de un bloque.
+void* capturaBloqueClave(Atributo *arrAtr, long tamBloque, int nAtr)
+{
+    void* p = malloc(tamBloque);
+    *((long*)p+0) = (long) - 1;
+    long des = sizeof(long);
+
+        printf("\nBloque que desea modificar:\n", arrAtr[0].nombre);
+
+        switch (arrAtr[0].tipo)
+        {
+            case 1:
+            {
+                char cad[500];
+                fflush(stdin);
+                scanf("%s", cad);
+                cad[arrAtr[0].tam - 1] = '\0';
+                strcpy((char *)(p+des),cad);
+                break;
+            }
+            case 2:
+            {
+                int entero;
+                scanf("%d", &entero);
+                *((int*)(p+des)) = entero;
+                break;
+            }
+            case 3:
+            {
+                float flotante;
+                scanf("%f", &flotante);
+                *((float*)(p+des)) = flotante;
+                break;
+            }
+            case 4:
+            {
+                double doble;
+                scanf("%lf", &doble);
+                *(double*)(p+des) = doble;
+                break;
+            }
+            case 5:
+            {
+                long largo;
+                scanf("%ld", &largo);
+                *((long*)(p+des)) = largo;
+                break;
+            }
+        }
+    return p;
 }

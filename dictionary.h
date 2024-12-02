@@ -5,58 +5,88 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
-#include <ctype.h>
 
-#define MAIN_ENTITY_POINTER 0
-#define EMPTY_POINTER -1
-#define DATA_BLOCK_SIZE 50
+typedef char cadena[30];
 
-typedef struct Entity{
-    char name[DATA_BLOCK_SIZE]; 
-    long dataPointer; 
-    long attributesPointer; 
-    long nextEntity; 
-} ENTITY; 
+typedef struct
+{
+    cadena nombre;
+    long atr;
+    long sig;
+    long data;
+}Entidad;
 
-typedef struct Attribute {
-    char name[DATA_BLOCK_SIZE]; 
-    bool isPrimary; 
-    long type; 
-    long size; 
-    long nextAttribute;
-} ATTRIBUTE;
+typedef struct
+{
+    cadena nombre;
+    int tipo;
+    char iskp;
+    long sig;
+    int tam;
+    cadena descripcion;
+}Atributo;
 
-//FILE* initializeDataDictionary(const char *dictionaryName);
-FILE* initializeDataDictionary(const char *dictionaryName);
+void menuPrincipal(FILE *f);
+void nuevoDiccionario(FILE *f);
+void abrirDiccionario(FILE *f);
+void cerrarDiccionario(FILE *f);
 
-int appendEntity(FILE* dataDicictionary, ENTITY newEntity); 
-void reorderEntities(FILE* dataDictionary, long currentEntityPointer, const char* newEntityName, long newEntityDirection); 
-void createEntity(FILE* dataDictionary);
+//Entidades
 
-void createAttribute(FILE* dataDictionary, ENTITY currentEntity);
-int appendAttribute(FILE* dataDictionary, ATTRIBUTE newAttribute); 
-void reorderAttributes(FILE* dataDictionary, long currentAttributePointer, const char* newAttributeName, long newAttributeDirection);
+void menuEntidades(FILE *f);
+void altaEntidad(FILE *f);
+Entidad capturaEntidad();
+Entidad leeEntidad(FILE  *f,long dir);
+long buscaEntidad(FILE *f, cadena entNom);
+long escribeEntidad(FILE *f, Entidad ent);
+void escribeCabEntidades(FILE *f);
+long getCabEntidades(FILE *f);
+void insertaEntidad(FILE *f,Entidad nueva, long dir);
+void reescribeEntidad(FILE *f, Entidad ent, long dir); //Referencia
+void consultaEntidad(FILE *f);
+void bajaEntidad(FILE *f);
+long eliminaEntidad(FILE *f, cadena nomb);
+void modificaEntidad(FILE *f);
+void rescribeCabEntidades(FILE *f,long dir);
+void pideNomEnt(cadena nombEnt);
 
-ENTITY removeEntity(FILE* dataDictionary, long currentEntityPointer, const char* entityName); 
+//Atributos
 
-void attributeSize(ATTRIBUTE newAtribute);
-ATTRIBUTE removeAttribute(FILE *dataDictionary, long currentAttributePointer, const char* attributeName);
+void menuAtributos(FILE *f, Entidad entAct, long direntAct);
+int opcAtr();
+long seleccionaTabla(FILE *f, Entidad *entAct, long *direntAct);
+void altaAtributo(FILE *f, Entidad *entAct, long direntAct);
+Atributo capturaAtributo();
+long buscaAtributo(FILE *f, cadena atrNom, Entidad entAct);
+long escribeAtributo(FILE *f, Atributo atr);
+void insertaAtributo(FILE *f, Atributo atr, long dir, Entidad *entAct, long direntAct);
+Atributo leeAtributo(FILE *f, long dir);
+void reescribeAtributo(FILE *f, Atributo atr, long dir);
+void bajaAtributo(FILE *f, Entidad *entAct, long direntAct);
+long eliminaAtributo(FILE *f, cadena atrNom, Entidad *entAct, long direntAct);
+void modificaAtributo(FILE *f, Entidad *entAct, long direntAct);
+void consultaAtributo(FILE *f, Entidad entAct);
+void pideNombAtr(cadena nombAtr);
 
-void captureEntities(FILE* dataDictionary);
-ENTITY searchEntityByName(FILE* dataDictionary, const char* entityName);
-void captureAttributes(FILE* dataDictionary, ENTITY currentEntity);
-void captureAttributesForEntity(FILE* dataDictionary);
-void showEntitiesWithAttributes(FILE* dataDictionary);
-void showAttributes(FILE* dataDictionary, long attributesPointer);
-void showEntities(FILE* dataDictionary);
+//Bloques
 
-void captureMetadata(FILE* dataDictionary, ENTITY* currentEntity);
-
-void mainMenu();
-void entityMenu(FILE* dataDictionary);
-void attributeMenu(FILE* dataDictionary);
-void selectionEntitiesAttributes(FILE* dataDictionary);
-void deleteEntity(FILE* dataDictionary);
-void deleteAttribute(FILE* dataDictionary);
+int opcBlq();
+void menuBloques(FILE *f, Entidad entAct, long direntAct, Atributo *arrAtr, int nAtr, void* b, long tamBloque);
+void consultaBloque(FILE *f, Entidad entAct, Atributo *arrAtr, int nAtr, void* b, long tamBloque);
+bool existeISKP(FILE *f, Entidad entAct);
+long cargaAtributos(FILE *f, Entidad entAct, Atributo *arrAtr, int *nAtr);
+double comparaBloques(Atributo *arrAtr, void* b1, void* b2);
+void* capturaBloque(Atributo *arrAtr, long tamBloque, int nAtr);
+void* capturaBloqueClave(Atributo *arrAtr, long tamBloque, int nAtr);
+void insertaBloque(FILE *f, Entidad *entAct, long direntAct, Atributo *arrAtr, void* b, long tamBloque, long dir);
+void altaSecuencial(FILE *f, Entidad *entAct, long direntAct, Atributo *arrAtr, int nAtr, long tamBloque);
+long eliminaBloque(FILE *f, Entidad *entAct, long direntAct, Atributo *arrAtr, void* b, long tamBloque);
+void bajaSecuencial(FILE *f, Entidad *entAct, long direntAct, Atributo *arrAtr, int nAtr, long tamBloque);
+void* leeBloque(FILE *f, long dir, long tamBloque);
+long escribeBloque(FILE *f, void* b, long tamBloque);
+long buscaBloque(FILE *f, Entidad entAct, Atributo *arrAtr, void* b, long tamBloque);
+void modificaBloque(FILE *f, Entidad *entAct, long direntAct, Atributo *arrAtr, int nAtr, long tamBloque);
+void reescribeBloque(FILE *f, void* b, long dir, long tamBloque);
+long existeBloqueDif(FILE *f, Entidad entAct, Atributo *arrAtr, void* b, void* bNuevo, long tamBloque);
 
 #endif
