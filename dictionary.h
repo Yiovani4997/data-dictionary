@@ -14,6 +14,7 @@ typedef struct
     long atr;
     long sig;
     long data;
+    int nAtr;
 }Entidad;
 
 typedef struct

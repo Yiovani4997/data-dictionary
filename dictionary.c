@@ -97,7 +97,7 @@ void cerrarDiccionario(FILE *f)
 //Menu principal de las entidades, se mandan llamar todas las funciones de entidades, menu de aributos y menu bloques.
 void menuEntidades(FILE *f)
 {
-    int op, nAtr;
+    int op;//, nAtr=0;
     Entidad entAct;
     long direntAct;
     Atributo arrAtr[50];
@@ -143,11 +143,11 @@ void menuEntidades(FILE *f)
                 break;
             case 6:
                 seleccionaTabla(f, &entAct, &direntAct);
-                if(existeISKP(f, entAct) == true)
-                {
-                    tamBloque = cargaAtributos(f, entAct, arrAtr, &nAtr);
-                    menuBloques(f, entAct, direntAct, arrAtr, nAtr, b, tamBloque);
-                }
+                //if(existeISKP(f, entAct) == true)
+                //{
+                tamBloque = cargaAtributos(f, entAct, arrAtr, &(entAct.nAtr));
+                menuBloques(f, entAct, direntAct, arrAtr, entAct.nAtr, b, tamBloque);
+                //}
                 break;
             case 7:
                 menuPrincipal(f);
@@ -497,6 +497,7 @@ Atributo capturaAtributo()
     printf("Ingrese el nombre del atributo: ");
     scanf("%s", nuevoAtributo.nombre);
 
+
     // Captura del tipo de dato
     printf("Ingrese el tipo del atributo:\n 1. Cadena\n 2. Entero\n 3. Float\n 4. Double\n 5. Long\n");
     scanf("%d", &nuevoAtributo.tipo);
@@ -612,6 +613,7 @@ void altaAtributo(FILE *f, Entidad *entAct, long direntAct)
     {
         dirNuevo = escribeAtributo(f, nuevoAtr);
         insertaAtributo(f, nuevoAtr, dirNuevo, entAct, direntAct);
+        (entAct->nAtr)++;
     }
     else
         printf("Error. El Atributo que desea agregar ya existe.");
@@ -629,6 +631,7 @@ void insertaAtributo(FILE *f, Atributo atr, long dir, Entidad *entAct, long dire
     {
         entAct->atr = dir;
         reescribeEntidad(f, *entAct, direntAct);
+        //entAct->nAtr = 0;
     }
     else
     {
@@ -643,6 +646,7 @@ void insertaAtributo(FILE *f, Atributo atr, long dir, Entidad *entAct, long dire
         }
         else
         {
+            //(entAct->nAtr)++;
             while (cab != -1 && strcmp(atr.nombre, atrAct.nombre) > 0)
             {
                 atrAnt = atrAct;
@@ -841,14 +845,14 @@ long cargaAtributos(FILE *f, Entidad entAct, Atributo *arrAtr, int *nAtr)
     {
         atr = leeAtributo(f, cab);
 
-        if(atr.iskp == 'S')
+        /*if(atr.iskp == 'S')
         {
             arrAtr[0] = atr;
             cont--;
         }
 
         if(atr.iskp == 'N')
-            arrAtr[cont] = atr;
+            arrAtr[cont] = atr;*/
 
         cont++;
 
@@ -929,60 +933,60 @@ void menuBloques(FILE *f, Entidad entAct, long direntAct, Atributo *arrAtr, int 
 }
 
 //Captura los datos del bloque de datos los cuales corresponden a los atributos.
-void* capturaBloque(Atributo *arrAtr, long tamBloque, int nAtr)
-{
+void* capturaBloque(Atributo* arrAtr, long tamBloque, int nAtr) {
+    // Reserva memoria para el bloque
     void* p = malloc(tamBloque);
-    *((long*)p+0) = (long) - 1;
-    long des = sizeof(long);
-    int i = 0;
+    if (p == NULL) {
+        printf("Error: No se pudo asignar memoria.\n");
+        return NULL;
+    }
 
-    while(i < nAtr)
-    {
-        printf("Ingrese el/la %s:", arrAtr[i].nombre);
+    // Inicializa la cabecera del bloque con -1 (siguiente bloque = -1)
+    *((long*)p) = (long)-1;
+    long des = sizeof(long); // Desplazamiento inicial (después de la cabecera)
 
-        switch (arrAtr[i].tipo)
-        {
-            case 1:
-            {
+    // Captura datos para cada atributo
+    for (int i = 0; i < nAtr; i++) {
+        printf("Ingrese el/la %s: ", arrAtr[i].nombre);
+
+        switch (arrAtr[i].tipo) {
+            case 1: { // Cadena de caracteres
                 char cad[500];
-                fflush(stdin);
-                scanf("%s", cad);
-                cad[arrAtr[i].tam - 1] = '\0';
-                strcpy((char *)(p+des),cad);
+                scanf("%499s", cad); // Límite de entrada para evitar desbordamientos
+                cad[arrAtr[i].tam - 1] = '\0'; // Asegura que la cadena termine en '\0'
+                strncpy((char*)(p + des), cad, arrAtr[i].tam); // Copia segura
                 break;
             }
-            case 2:
-            {
+            case 2: { // Entero
                 int entero;
                 scanf("%d", &entero);
-                *((int*)(p+des)) = entero;
+                *((int*)(p + des)) = entero;
                 break;
             }
-            case 3:
-            {
+            case 3: { // Flotante
                 float flotante;
                 scanf("%f", &flotante);
-                *((float*)(p+des)) = flotante;
+                *((float*)(p + des)) = flotante;
                 break;
             }
-            case 4:
-            {
+            case 4: { // Doble
                 double doble;
                 scanf("%lf", &doble);
-                *(double*)(p+des) = doble;
+                *((double*)(p + des)) = doble;
                 break;
             }
-            case 5:
-            {
+            case 5: { // Long
                 long largo;
                 scanf("%ld", &largo);
-                *((long*)(p+des)) = largo;
+                *((long*)(p + des)) = largo;
                 break;
             }
         }
+
+        // Actualiza el desplazamiento según el tamaño del atributo actual
         des += arrAtr[i].tam;
-        i++;
     }
+
     return p;
 }
 
@@ -1311,7 +1315,7 @@ void* capturaBloqueClave(Atributo *arrAtr, long tamBloque, int nAtr)
     *((long*)p+0) = (long) - 1;
     long des = sizeof(long);
 
-        printf("\nBloque que desea modificar:\n", arrAtr[0].nombre);
+        printf("\nBloque que desea modificar: \n", arrAtr[0].nombre);
 
         switch (arrAtr[0].tipo)
         {
